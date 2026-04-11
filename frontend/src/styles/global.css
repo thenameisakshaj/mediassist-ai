@@ -1,0 +1,262 @@
+@import "tailwindcss";
+
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #0f172a;
+  background: #f8fafc;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #f8fafc;
+}
+
+a {
+  text-decoration: none;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+.section {
+  padding: 5rem 1.25rem;
+}
+
+.section-inner {
+  width: min(100%, 80rem);
+  margin: 0 auto;
+}
+
+.section-heading {
+  max-width: 46rem;
+}
+
+.section-heading h2,
+.page-hero h1,
+.section h2 {
+  color: #0f172a;
+  font-weight: 900;
+  line-height: 1.08;
+}
+
+.section-heading h2,
+.section h2 {
+  font-size: 2.5rem;
+}
+
+.page-hero h1 {
+  font-size: 3.5rem;
+}
+
+.section-heading p,
+.page-hero p {
+  margin-top: 1.25rem;
+  color: #475569;
+  font-size: 1.125rem;
+  line-height: 1.8;
+}
+
+.page-hero {
+  padding: 5rem 1.25rem 4rem;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #06738a;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.card {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 1.5rem;
+  box-shadow: 0 18px 55px rgba(15, 23, 42, 0.07);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  border-color: #a5f3fc;
+  box-shadow: 0 22px 70px rgba(6, 182, 212, 0.12);
+}
+
+.card h2,
+.card h3 {
+  color: #0f172a;
+  font-size: 1.2rem;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.card p {
+  margin-top: 0.85rem;
+  color: #64748b;
+  line-height: 1.7;
+}
+
+.btn-primary,
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border-radius: 8px;
+  padding: 0.85rem 1.1rem;
+  font-size: 0.95rem;
+  font-weight: 900;
+  transition: transform 170ms ease, background 170ms ease, border-color 170ms ease, color 170ms ease;
+}
+
+.btn-primary {
+  border: 1px solid #0891b2;
+  background: #0891b2;
+  color: #ffffff;
+  box-shadow: 0 14px 35px rgba(8, 145, 178, 0.24);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  background: #0e7490;
+}
+
+.btn-primary:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+  transform: none;
+}
+
+.btn-secondary {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.btn-secondary:hover {
+  transform: translateY(-2px);
+  border-color: #67e8f9;
+  color: #0e7490;
+}
+
+.nav-link {
+  font-size: 0.94rem;
+  font-weight: 800;
+}
+
+.input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 0.95rem 1rem;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.input:focus {
+  border-color: #06b6d4;
+  box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.15);
+}
+
+.chat-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 25px 90px rgba(15, 23, 42, 0.1);
+}
+
+.chat-bubble {
+  max-width: min(92%, 44rem);
+  border-radius: 8px;
+  padding: 1rem;
+  line-height: 1.7;
+}
+
+.chat-bubble-user {
+  background: #0891b2;
+  color: #ffffff;
+}
+
+.chat-bubble-bot {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.prompt-chip {
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  background: #ecfeff;
+  padding: 0.55rem 0.75rem;
+  color: #155e75;
+  font-size: 0.82rem;
+  font-weight: 800;
+  transition: background 150ms ease, transform 150ms ease;
+}
+
+.prompt-chip:hover {
+  background: #cffafe;
+  transform: translateY(-1px);
+}
+
+.source-snippet {
+  border-left: 3px solid #06b6d4;
+  background: #f8fafc;
+  padding: 0.85rem;
+  color: #475569;
+  font-size: 0.86rem;
+  line-height: 1.65;
+}
+
+.disclaimer {
+  display: flex;
+  gap: 0.85rem;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  background: #ecfeff;
+  color: #164e63;
+  line-height: 1.65;
+}
+
+@media (max-width: 768px) {
+  .section {
+    padding: 3.75rem 1rem;
+  }
+
+  .page-hero {
+    padding: 4rem 1rem 3rem;
+  }
+
+  .section-heading h2,
+  .section h2 {
+    font-size: 2rem;
+  }
+
+  .page-hero h1 {
+    font-size: 2.5rem;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    width: 100%;
+  }
+}
