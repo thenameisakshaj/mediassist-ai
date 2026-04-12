@@ -42,6 +42,7 @@ class Config:
 
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
     OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
+    OPENAI_CHAT_FALLBACK_MODEL = os.getenv("OPENAI_CHAT_FALLBACK_MODEL", "gpt-4.1-mini")
 
     VECTOR_STORE_DIR = resolve_backend_path(
         os.getenv("VECTOR_STORE_DIR", "storage/chroma_db"), "storage/chroma_db"
@@ -56,7 +57,9 @@ class Config:
     CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "700"))
     CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "90"))
     TOP_K = int(os.getenv("TOP_K", "4"))
-    MIN_RELEVANCE_SCORE = float(os.getenv("MIN_RELEVANCE_SCORE", "0.18"))
+    # Strict RAG refusal uses both similarity and keyword coverage before generation.
+    MIN_RELEVANCE_SCORE = float(os.getenv("MIN_RELEVANCE_SCORE", "0.45"))
+    MIN_KEYWORD_COVERAGE = float(os.getenv("MIN_KEYWORD_COVERAGE", "0.60"))
 
     SAFETY_WARNING = (
         "Educational use only. MediAssist AI is not a substitute for a licensed "

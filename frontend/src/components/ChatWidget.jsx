@@ -33,6 +33,7 @@ export default function ChatWidget({ onSourcesChange, compact = false }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const listRef = useRef(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     getSuggestedPrompts()
@@ -48,6 +49,9 @@ export default function ChatWidget({ onSourcesChange, compact = false }) {
     const question = value.trim();
     if (!question || loading) return;
 
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
     setInput("");
     setError("");
     setLoading(true);
@@ -59,15 +63,23 @@ export default function ChatWidget({ onSourcesChange, compact = false }) {
         sources: data.sources || [],
         warning: data.warning || ""
       });
+
+      if (requestId !== requestIdRef.current) return;
+
       setMessages((current) => [...current, assistantMessage]);
       onSourcesChange?.(data.sources || []);
     } catch (err) {
       const fallback = "I could not reach the medical assistant service. Check the backend, API key, and vector index status.";
+
+      if (requestId !== requestIdRef.current) return;
+
       setError(err.message || fallback);
       setMessages((current) => [...current, makeMessage("assistant", fallback)]);
       onSourcesChange?.([]);
     } finally {
-      setLoading(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }
 

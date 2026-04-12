@@ -116,7 +116,10 @@ FLASK_APP=app.py
 VECTOR_STORE_DIR=storage/chroma_db
 MEDICAL_BOOK_PATH=data/medical_book.pdf
 OPENAI_MODEL=gpt-5.4-mini
+OPENAI_CHAT_FALLBACK_MODEL=gpt-4.1-mini
 EMBEDDING_MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
+MIN_RELEVANCE_SCORE=0.45
+MIN_KEYWORD_COVERAGE=0.60
 PINECONE_API_KEY=
 PINECONE_INDEX_NAME=
 ```
@@ -212,6 +215,8 @@ If the context is insufficient, the chatbot returns:
 I do not have enough relevant medical-book context to answer that confidently.
 ```
 
+Strict RAG refusal mode runs before answer generation. The backend checks both vector similarity and keyword coverage against the retrieved chunks. If the question is out-of-domain, too vague, meta-only, or the key medical terms are not directly supported by the retrieved book context, the chatbot refuses and returns no visible sources.
+
 ## Screenshots
 
 Add screenshots after running the app:
@@ -245,3 +250,5 @@ MediAssist AI must not be used for diagnosis, prescriptions, triage, or treatmen
 - Model evaluation test set
 - Docker deployment
 - Clinical review workflow before real-world use
+
+
