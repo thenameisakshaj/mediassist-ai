@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+﻿from flask import Flask, jsonify
 from flask_cors import CORS
 
 from config import Config
@@ -44,4 +44,5 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=Config.DEBUG)
+    # Keep dev mode on, but skip the Flask stat reloader so background starts stay single-process and stable.
+    app.run(host="0.0.0.0", port=5000, debug=Config.DEBUG, use_reloader=False)

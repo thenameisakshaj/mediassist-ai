@@ -1,4 +1,4 @@
-import re
+﻿import re
 
 from config import Config
 from services.embeddings import embed_texts
@@ -36,7 +36,6 @@ QUESTION_STOPWORDS = {
     "with",
 }
 
-# These generic query terms are ignored so the gate focuses on the medical topic itself.
 GENERIC_QUERY_TERMS = {
     "about",
     "answer",
@@ -49,18 +48,15 @@ GENERIC_QUERY_TERMS = {
     "define",
     "definition",
     "describe",
-    "difference",
     "disease",
     "disorders",
     "effect",
     "effects",
     "explain",
     "explainer",
+    "explanation",
     "health",
     "healthcare",
-    "match",
-    "matches",
-    "matching",
     "mean",
     "meaning",
     "medical",
@@ -73,34 +69,85 @@ GENERIC_QUERY_TERMS = {
     "treat",
     "treatment",
     "treatments",
+    "type",
+    "types",
     "work",
     "works",
 }
+
+FORMAT_REQUEST_TERMS = {
+    "between",
+    "bullet",
+    "bullets",
+    "compare",
+    "comparison",
+    "difference",
+    "differences",
+    "different",
+    "format",
+    "formatted",
+    "key",
+    "list",
+    "listed",
+    "main",
+    "outline",
+    "point",
+    "points",
+    "step",
+    "steps",
+    "summarize",
+    "summary",
+    "table",
+    "versus",
+    "vs",
+}
+
+META_QUERY_TERMS = {
+    "citation",
+    "citations",
+    "match",
+    "matches",
+    "matching",
+    "source",
+    "sources",
+}
+
+NON_TOPIC_TERMS = QUESTION_STOPWORDS | GENERIC_QUERY_TERMS | FORMAT_REQUEST_TERMS | META_QUERY_TERMS
 
 
 class MedicalRetriever:
     def __init__(self, vector_store: ChromaVectorStore | None = None):
         self.vector_store = vector_store or ChromaVectorStore()
 
-    def retrieve(self, question: str) -> list[dict]:
-        query_embedding = embed_texts([question])[0]
+    def retrieve(self, query: str) -> list[dict]:
+        normalized_query = clean_text(query)
+        if not normalized_query:
+            return []
+        query_embedding = embed_texts([normalized_query])[0]
         return self.vector_store.query(query_embedding, n_results=Config.TOP_K)
 
-    def assess_context(self, question: str) -> dict:
-        focus_terms = self._extract_focus_terms(question)
+    def assess_context(self, focus_query: str, retrieval_query: str | None = None) -> dict:
+        focus_text = clean_text(focus_query)
+        retrieval_text = clean_text(retrieval_query or focus_query)
+        focus_terms = self._extract_focus_terms(focus_text)
         if not focus_terms:
             return {
                 "is_sufficient": False,
                 "accepted_chunks": [],
                 "reason": "question_is_too_vague_or_meta",
                 "focus_terms": [],
+                "top_similarity": 0.0,
+                "retrieval_query": retrieval_text,
             }
 
-        raw_matches = [self._annotate_match(match, focus_terms) for match in self.retrieve(question)]
+        raw_matches = [
+            self._annotate_match(match, focus_terms)
+            for match in self.retrieve(retrieval_text)
+        ]
         relevant_matches = [
             match
             for match in raw_matches
-            if match.get("similarity", 0) >= Config.MIN_RELEVANCE_SCORE
+            if match.get("similarity", 0.0) >= Config.MIN_RELEVANCE_SCORE
         ]
         if not relevant_matches:
             return {
@@ -108,12 +155,14 @@ class MedicalRetriever:
                 "accepted_chunks": [],
                 "reason": "similarity_below_threshold",
                 "focus_terms": focus_terms,
+                "top_similarity": raw_matches[0].get("similarity", 0.0) if raw_matches else 0.0,
+                "retrieval_query": retrieval_text,
             }
 
         keyword_supported = [
             match
             for match in relevant_matches
-            if match.get("keyword_coverage", 0) >= Config.MIN_KEYWORD_COVERAGE
+            if match.get("keyword_coverage", 0.0) >= Config.MIN_KEYWORD_COVERAGE
         ]
         if not keyword_supported:
             return {
@@ -121,23 +170,28 @@ class MedicalRetriever:
                 "accepted_chunks": [],
                 "reason": "missing_key_question_terms_in_context",
                 "focus_terms": focus_terms,
+                "top_similarity": relevant_matches[0].get("similarity", 0.0),
+                "retrieval_query": retrieval_text,
             }
 
+        accepted_chunks = keyword_supported[: Config.TOP_K]
         return {
             "is_sufficient": True,
-            "accepted_chunks": keyword_supported[: Config.TOP_K],
+            "accepted_chunks": accepted_chunks,
             "reason": "accepted",
             "focus_terms": focus_terms,
+            "top_similarity": accepted_chunks[0].get("similarity", 0.0),
+            "retrieval_query": retrieval_text,
         }
 
     @staticmethod
     def _extract_focus_terms(question: str) -> list[str]:
-        tokens = re.findall(r"[a-zA-Z]+", clean_text(question).lower())
+        tokens = re.findall(r"[a-zA-Z0-9]+", clean_text(question).lower())
         focus_terms = []
         for token in tokens:
             if len(token) < 3:
                 continue
-            if token in QUESTION_STOPWORDS or token in GENERIC_QUERY_TERMS:
+            if token in NON_TOPIC_TERMS:
                 continue
             if token not in focus_terms:
                 focus_terms.append(token)
@@ -153,3 +207,5 @@ class MedicalRetriever:
         annotated_match["matched_terms"] = matched_terms
         annotated_match["keyword_coverage"] = round(keyword_coverage, 4)
         return annotated_match
+
+

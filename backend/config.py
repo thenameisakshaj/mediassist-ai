@@ -1,4 +1,4 @@
-import os
+﻿import os
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -43,6 +43,7 @@ class Config:
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
     OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
     OPENAI_CHAT_FALLBACK_MODEL = os.getenv("OPENAI_CHAT_FALLBACK_MODEL", "gpt-4.1-mini")
+    OPENAI_NORMALIZATION_MODEL = os.getenv("OPENAI_NORMALIZATION_MODEL", "gpt-4.1-mini")
 
     VECTOR_STORE_DIR = resolve_backend_path(
         os.getenv("VECTOR_STORE_DIR", "storage/chroma_db"), "storage/chroma_db"
@@ -57,9 +58,16 @@ class Config:
     CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "700"))
     CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "90"))
     TOP_K = int(os.getenv("TOP_K", "4"))
+
     # Strict RAG refusal uses both similarity and keyword coverage before generation.
-    MIN_RELEVANCE_SCORE = float(os.getenv("MIN_RELEVANCE_SCORE", "0.45"))
+    MIN_RELEVANCE_SCORE = float(os.getenv("MIN_RELEVANCE_SCORE", "0.42"))
     MIN_KEYWORD_COVERAGE = float(os.getenv("MIN_KEYWORD_COVERAGE", "0.60"))
+    STRONG_RELEVANCE_SCORE = float(os.getenv("STRONG_RELEVANCE_SCORE", "0.62"))
+
+    # Query normalization confidence policy stays separate from the retrieval gate.
+    NORMALIZATION_HIGH_CONFIDENCE = float(os.getenv("NORMALIZATION_HIGH_CONFIDENCE", "0.75"))
+    NORMALIZATION_MEDIUM_CONFIDENCE = float(os.getenv("NORMALIZATION_MEDIUM_CONFIDENCE", "0.45"))
+    NORMALIZATION_CACHE_SIZE = int(os.getenv("NORMALIZATION_CACHE_SIZE", "128"))
 
     SAFETY_WARNING = (
         "Educational use only. MediAssist AI is not a substitute for a licensed "

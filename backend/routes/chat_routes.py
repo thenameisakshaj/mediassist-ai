@@ -18,9 +18,10 @@ SUGGESTED_PROMPTS = [
 def chat():
     payload = request.get_json(silent=True) or {}
     message = payload.get("message", "")
+    session_id = payload.get("session_id")
 
     try:
-        response = ChatbotService().answer(message)
+        response = ChatbotService().answer(message, session_id=session_id)
         return jsonify(response)
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400

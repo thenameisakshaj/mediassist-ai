@@ -26,14 +26,23 @@ function makeMessage(role, content, extras = {}) {
   };
 }
 
+function createSessionId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+  return `session-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 export default function ChatWidget({ onSourcesChange, compact = false }) {
   const [messages, setMessages] = useState(initialMessages);
   const [input, setInput] = useState("");
   const [prompts, setPrompts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [sharedLocation, setSharedLocation] = useState(null);
   const listRef = useRef(null);
   const requestIdRef = useRef(0);
+  const sessionIdRef = useRef(createSessionId());
 
   useEffect(() => {
     getSuggestedPrompts()
@@ -58,10 +67,21 @@ export default function ChatWidget({ onSourcesChange, compact = false }) {
     setMessages((current) => [...current, makeMessage("user", question)]);
 
     try {
-      const data = await sendChatMessage(question);
+      const data = await sendChatMessage(
+        question,
+        sessionIdRef.current,
+        sharedLocation ? { location: sharedLocation } : undefined
+      );
       const assistantMessage = makeMessage("assistant", data.answer, {
         sources: data.sources || [],
-        warning: data.warning || ""
+        warning: data.warning || "",
+        triage: {
+          needLevel: data.need_level,
+          needLabel: data.need_label,
+          careGuidance: data.care_guidance || null,
+          suggestNearbyCare: Boolean(data.suggest_nearby_care),
+          triageReason: data.triage_reason || null
+        }
       });
 
       if (requestId !== requestIdRef.current) return;
@@ -99,7 +119,12 @@ export default function ChatWidget({ onSourcesChange, compact = false }) {
 
       <div ref={listRef} className="flex-1 space-y-4 overflow-y-auto p-5">
         {messages.map((message) => (
-          <ChatMessage key={message.id} message={message} />
+          <ChatMessage
+            key={message.id}
+            message={message}
+            sharedLocation={sharedLocation}
+            onLocationResolved={setSharedLocation}
+          />
         ))}
         {loading && (
           <div className="chat-bubble chat-bubble-bot">

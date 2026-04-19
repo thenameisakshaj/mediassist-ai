@@ -22,10 +22,14 @@ export function getSuggestedPrompts() {
   return request("/api/suggested-prompts");
 }
 
-export function sendChatMessage(message) {
+export function sendChatMessage(message, sessionId, extraPayload = {}) {
   return request("/api/chat", {
     method: "POST",
-    body: JSON.stringify({ message })
+    body: JSON.stringify({
+      message,
+      ...(sessionId ? { session_id: sessionId } : {}),
+      ...(extraPayload || {})
+    })
   });
 }
 
