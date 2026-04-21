@@ -100,6 +100,9 @@ class ChromaVectorStore:
             "indexed": count > 0,
             "vector_store": "chroma",
             "document_name": Config.MEDICAL_BOOK_PATH.name,
+            "document_path": str(Config.MEDICAL_BOOK_PATH),
+            "pdf_found": Config.MEDICAL_BOOK_PATH.exists(),
+            "persist_dir": str(self.persist_dir),
             "chunks_indexed": count,
             "collection": self.collection_name,
         }

@@ -5,6 +5,7 @@ from config import Config
 from routes.chat_routes import chat_bp
 from routes.contact_routes import contact_bp
 from routes.index_routes import index_bp
+from services.index_service import describe_index_status
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -36,6 +37,20 @@ def create_app():
     def server_error(error):
         logger.exception("Unhandled server error: %s", error)
         return jsonify({"error": "Internal server error"}), 500
+
+    try:
+        index_status = describe_index_status()
+        logger.info(
+            "Startup index status | indexed=%s | pdf_found=%s | pdf_path=%s | persist_dir=%s | collection=%s | chunks_indexed=%s",
+            index_status.get("indexed"),
+            index_status.get("pdf_found"),
+            index_status.get("document_path"),
+            index_status.get("persist_dir"),
+            index_status.get("collection"),
+            index_status.get("chunks_indexed"),
+        )
+    except Exception as exc:
+        logger.warning("Startup index status check failed: %s", exc)
 
     return app
 

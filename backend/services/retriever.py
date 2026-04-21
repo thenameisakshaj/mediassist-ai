@@ -2,8 +2,10 @@
 
 from config import Config
 from services.embeddings import embed_texts
+from services.index_service import ensure_index_ready
 from services.vector_store import ChromaVectorStore
 from utils.helpers import clean_text
+from utils.logger import get_logger
 
 QUESTION_STOPWORDS = {
     "a",
@@ -114,17 +116,42 @@ META_QUERY_TERMS = {
 
 NON_TOPIC_TERMS = QUESTION_STOPWORDS | GENERIC_QUERY_TERMS | FORMAT_REQUEST_TERMS | META_QUERY_TERMS
 
+logger = get_logger(__name__)
+
 
 class MedicalRetriever:
     def __init__(self, vector_store: ChromaVectorStore | None = None):
         self.vector_store = vector_store or ChromaVectorStore()
 
+    def _ensure_collection_ready(self) -> None:
+        existing_count = self.vector_store.count()
+        if existing_count > 0:
+            return
+
+        status = ensure_index_ready(force_rebuild=False)
+        self.vector_store = ChromaVectorStore()
+        logger.info(
+            "Retriever index refresh | indexed=%s | chunks_indexed=%s | collection=%s | persist_dir=%s",
+            status.get("indexed"),
+            status.get("chunks_indexed", 0),
+            status.get("collection"),
+            status.get("persist_dir"),
+        )
+
     def retrieve(self, query: str) -> list[dict]:
         normalized_query = clean_text(query)
         if not normalized_query:
             return []
+        self._ensure_collection_ready()
         query_embedding = embed_texts([normalized_query])[0]
-        return self.vector_store.query(query_embedding, n_results=Config.TOP_K)
+        matches = self.vector_store.query(query_embedding, n_results=Config.TOP_K)
+        logger.info(
+            "Retriever query | retrieval_query=%r | collection=%s | matches=%s",
+            normalized_query,
+            self.vector_store.collection_name,
+            len(matches),
+        )
+        return matches
 
     def assess_context(self, focus_query: str, retrieval_query: str | None = None) -> dict:
         focus_text = clean_text(focus_query)
