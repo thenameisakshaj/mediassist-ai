@@ -75,6 +75,8 @@ export default function ChatWidget({ onSourcesChange, compact = false }) {
       const assistantMessage = makeMessage("assistant", data.answer, {
         sources: data.sources || [],
         warning: data.warning || "",
+        answerSourceType: data.answer_source_type || "book_rag",
+        webSources: data.web_sources || [],
         triage: {
           needLevel: data.need_level,
           needLabel: data.need_label,

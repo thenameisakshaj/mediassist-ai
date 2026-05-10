@@ -1,4 +1,4 @@
-import { BookMarked } from "lucide-react";
+import { BookMarked, ExternalLink } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
@@ -40,6 +40,28 @@ export default function ChatMessage({ message, sharedLocation, onLocationResolve
             sharedLocation={sharedLocation}
             onLocationResolved={onLocationResolved}
           />
+        )}
+        {!isUser && message.answerSourceType === "trusted_web_fallback" && (
+          <div className="web-fallback-panel">
+            <span className="web-fallback-badge">Trusted medical web fallback</span>
+            {message.webSources?.length > 0 && (
+              <div className="web-source-list">
+                {message.webSources.map((source) => (
+                  <a
+                    key={source.url}
+                    className="web-source-link"
+                    href={source.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <ExternalLink size={14} />
+                    <span>{source.title || source.domain}</span>
+                    <small>{source.domain}</small>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
         )}
         {!isUser && message.sources?.length > 0 && (
           <div className="mt-4 space-y-3 border-t border-slate-200 pt-3">

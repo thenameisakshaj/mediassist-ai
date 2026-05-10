@@ -1,5 +1,6 @@
-﻿import json
+import json
 from collections import OrderedDict
+from urllib.parse import urlparse
 
 from openai import OpenAI
 
@@ -36,6 +37,21 @@ Rules:
 
 ALLOWED_LANGUAGES = {"english", "hindi", "hinglish"}
 
+WEB_FALLBACK_SYSTEM_PROMPT = """
+You are MediAssist AI's trusted medical web fallback.
+Use only trusted medical web search results from the configured allowed domains.
+Do not use general model memory.
+
+Rules:
+- Start by saying the indexed medical book did not provide enough relevant context.
+- Say the answer is based on trusted medical web sources.
+- Keep the answer short, educational, and non-diagnostic.
+- Do not prescribe medication or claim treatment certainty.
+- If the sources do not support the answer, say the context is insufficient.
+- For emergency warning signs, advise urgent professional care without diagnosing.
+- End with a brief educational-use safety reminder.
+""".strip()
+
 
 class OpenAIAnswerClient:
     _normalization_cache: OrderedDict[str, dict] = OrderedDict()
@@ -46,6 +62,7 @@ class OpenAIAnswerClient:
         self.model = Config.OPENAI_MODEL
         self.chat_fallback_model = Config.OPENAI_CHAT_FALLBACK_MODEL
         self.normalization_model = Config.OPENAI_NORMALIZATION_MODEL
+        self.web_fallback_model = Config.WEB_FALLBACK_MODEL
 
     @staticmethod
     def _should_use_chat_fallback(exc: Exception) -> bool:
@@ -81,6 +98,72 @@ class OpenAIAnswerClient:
                     parts.append(str(item["text"]))
             return "".join(parts)
         return str(content or "")
+
+    @staticmethod
+    def _domain_from_url(url: str) -> str:
+        hostname = urlparse(str(url or "")).hostname or ""
+        return hostname.lower().removeprefix("www.")
+
+    @staticmethod
+    def _matches_trusted_parent_domain(domain: str, allowed_domains: list[str]) -> bool:
+        clean_domain = str(domain or "").lower().removeprefix("www.")
+        return any(
+            clean_domain == allowed or clean_domain.endswith(f".{allowed}")
+            for allowed in allowed_domains
+        )
+
+    @classmethod
+    def _is_allowed_domain(cls, domain: str, allowed_domains: list[str]) -> bool:
+        clean_domain = str(domain or "").lower().removeprefix("www.")
+        # Keep the fallback demo-ready by hiding test/staging/dev subdomains
+        # even when their parent domain is on the medical trust list.
+        if clean_domain.startswith(("test-", "test.", "staging.", "dev.")):
+            return False
+        return cls._matches_trusted_parent_domain(clean_domain, allowed_domains)
+
+    @classmethod
+    def _extract_web_sources(cls, response: object) -> list[dict]:
+        try:
+            response_payload = response.model_dump()
+        except AttributeError:
+            response_payload = response if isinstance(response, dict) else {}
+
+        found_sources: list[dict] = []
+        seen_urls: set[str] = set()
+
+        def visit(value: object) -> None:
+            if isinstance(value, dict):
+                url = value.get("url")
+                title = value.get("title") or value.get("name") or value.get("source")
+                if url:
+                    domain = cls._domain_from_url(str(url))
+                    if str(url) not in seen_urls:
+                        seen_urls.add(str(url))
+                        found_sources.append(
+                            {
+                                "title": clean_text(title or domain),
+                                "url": str(url),
+                                "domain": domain,
+                            }
+                        )
+
+                for nested_value in value.values():
+                    visit(nested_value)
+            elif isinstance(value, list):
+                for item in value:
+                    visit(item)
+
+        visit(response_payload)
+        return found_sources
+
+    @classmethod
+    def _extract_trusted_web_sources(cls, response: object, allowed_domains: list[str]) -> list[dict]:
+        found_sources = [
+            source
+            for source in cls._extract_web_sources(response)
+            if cls._is_allowed_domain(source.get("domain", ""), allowed_domains)
+        ]
+        return found_sources[: Config.WEB_FALLBACK_MAX_SOURCES]
 
     @classmethod
     def _cache_get(cls, cache_key: str) -> dict | None:
@@ -274,3 +357,83 @@ class OpenAIAnswerClient:
                 retrieved_chunks,
                 answer_language,
             )
+
+    def search_trusted_medical_web(
+        self,
+        query: str,
+        language: str | None = None,
+    ) -> dict:
+        if not self.client:
+            raise RuntimeError("OPENAI_API_KEY is not configured.")
+
+        allowed_domains = Config.WEB_FALLBACK_ALLOWED_DOMAINS
+        language_instruction = {
+            "hindi": "Answer in simple Hindi.",
+            "hinglish": "Answer in natural Hinglish using Roman script.",
+        }.get(language or "english", "Answer in English.")
+
+        response_input = (
+            "Search trusted medical sources and answer this medical question. "
+            "Use only search results from these allowed medical domains: "
+            f"{', '.join(allowed_domains)}. "
+            f"{language_instruction}\n\n"
+            f"Medical question: {clean_text(query)}"
+        )
+        filtered_tool = {
+            "type": "web_search",
+            "filters": {"allowed_domains": allowed_domains},
+        }
+        unfiltered_tool = {"type": "web_search"}
+
+        try:
+            response = self.client.responses.create(
+                model=self.web_fallback_model,
+                instructions=WEB_FALLBACK_SYSTEM_PROMPT,
+                tools=[filtered_tool],
+                tool_choice="auto",
+                include=["web_search_call.action.sources"],
+                input=response_input,
+                max_output_tokens=700,
+            )
+        except Exception as exc:
+            if "filters" not in str(exc).lower():
+                raise
+
+            logger.warning(
+                "Web fallback model rejected domain filters. Retrying and validating returned domains."
+            )
+            response = self.client.responses.create(
+                model=self.web_fallback_model,
+                instructions=WEB_FALLBACK_SYSTEM_PROMPT,
+                tools=[unfiltered_tool],
+                tool_choice="auto",
+                include=["web_search_call.action.sources"],
+                input=response_input,
+                max_output_tokens=700,
+            )
+
+        answer = clean_text(getattr(response, "output_text", ""))
+        all_sources = self._extract_web_sources(response)
+        sources = self._extract_trusted_web_sources(response, allowed_domains)
+        untrusted_sources = [
+            source
+            for source in all_sources
+            if not self._matches_trusted_parent_domain(
+                source.get("domain", ""),
+                allowed_domains,
+            )
+        ]
+
+        if not answer or not sources or untrusted_sources:
+            if untrusted_sources:
+                logger.info(
+                    "Trusted web fallback rejected untrusted domains: %s",
+                    [source.get("domain") for source in untrusted_sources],
+                )
+            return {"success": False, "answer": "", "web_sources": []}
+
+        return {
+            "success": True,
+            "answer": answer,
+            "web_sources": sources,
+        }

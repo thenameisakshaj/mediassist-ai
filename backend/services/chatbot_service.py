@@ -2,11 +2,13 @@
 
 from config import Config
 from services.clarification_service import (
+    COMMON_MEDICAL_TOPICS,
     build_clarification,
     clarification_store,
     infer_likely_medical_topic,
     is_affirmative_reply,
     is_negative_reply,
+    normalize_query_terms,
     suggest_clarification,
 )
 from services.openai_client import OpenAIAnswerClient
@@ -34,6 +36,14 @@ OPENAI_UNAVAILABLE_NOTE = (
     "OpenAI response generation is unavailable right now, so this answer is a direct "
     "summary of the most relevant retrieved book context."
 )
+
+WEB_FALLBACK_MEDICAL_TERMS = COMMON_MEDICAL_TOPICS | {
+    "corona",
+    "coronavirus",
+    "covid19",
+    "sars",
+    "sarscov2",
+}
 
 logger = get_logger(__name__)
 
@@ -64,10 +74,14 @@ class ChatbotService:
         sources: list[dict],
         warning_question: str,
         triage: dict,
+        answer_source_type: str = "book_rag",
+        web_sources: list[dict] | None = None,
     ) -> dict:
         response = {
             "answer": answer,
             "sources": sources,
+            "web_sources": web_sources or [],
+            "answer_source_type": answer_source_type,
             "warning": ChatbotService._build_warning(warning_question),
             "need_level": triage.get("need_level", 0),
             "need_label": triage.get("need_label", "Informational"),
@@ -102,6 +116,85 @@ class ChatbotService:
             triage.get("need_label", "Informational"),
             triage.get("triage_reason", "unknown"),
             reason,
+        )
+
+    @staticmethod
+    def _is_medical_web_fallback_candidate(
+        raw_question: str,
+        normalized_query: str,
+        normalization: dict,
+        triage: dict,
+    ) -> bool:
+        if not Config.ENABLE_WEB_FALLBACK:
+            return False
+
+        if triage.get("need_level", 0) > 0:
+            return True
+
+        medical_topic = clean_text(normalization.get("medical_topic") or "").lower()
+        if medical_topic and medical_topic in WEB_FALLBACK_MEDICAL_TERMS:
+            return True
+
+        combined = " ".join(
+            [
+                normalize_query_terms(raw_question),
+                normalize_query_terms(normalized_query),
+                medical_topic,
+            ]
+        ).lower()
+        tokens = set(re.findall(r"[a-zA-Z0-9]+", combined))
+        return bool(tokens & WEB_FALLBACK_MEDICAL_TERMS)
+
+    def _try_trusted_web_fallback(
+        self,
+        question: str,
+        normalized_query: str,
+        answer_language: str,
+        normalization: dict,
+        triage: dict,
+    ) -> dict | None:
+        if not self._is_medical_web_fallback_candidate(
+            question,
+            normalized_query,
+            normalization,
+            triage,
+        ):
+            return None
+
+        web_query = normalized_query or question
+        try:
+            fallback = self.answer_client.search_trusted_medical_web(
+                web_query,
+                language=answer_language,
+            )
+        except Exception as exc:
+            logger.warning("Trusted medical web fallback failed for %r: %s", question, exc)
+            return None
+
+        if not fallback.get("success"):
+            logger.info("Trusted medical web fallback returned no trusted sources for %r", question)
+            return None
+
+        logger.info(
+            "Trusted medical web fallback used | query=%r | sources=%s",
+            web_query,
+            len(fallback.get("web_sources", [])),
+        )
+        answer = fallback["answer"]
+        if "indexed medical book" not in answer.lower():
+            answer = (
+                "The indexed medical book did not provide enough relevant context, "
+                "so this answer is based on trusted medical web sources.\n\n"
+                f"{answer}"
+            )
+
+        return self._build_response(
+            answer,
+            [],
+            question,
+            triage,
+            answer_source_type="trusted_web_fallback",
+            web_sources=fallback.get("web_sources", []),
         )
 
     def _split_answer_sections(self, answer: str) -> tuple[str, str]:
@@ -482,6 +575,7 @@ class ChatbotService:
                 [],
                 style_question,
                 triage,
+                answer_source_type="refusal",
             )
 
         effective_question = question or raw_question
@@ -555,6 +649,27 @@ class ChatbotService:
         strict_refusal = not context_assessment.get("is_sufficient")
 
         if strict_refusal:
+            web_fallback_response = self._try_trusted_web_fallback(
+                style_question,
+                normalized_query,
+                answer_language,
+                normalization,
+                triage,
+            )
+            if web_fallback_response:
+                self._log_query_pipeline(
+                    raw_question,
+                    normalized_query,
+                    answer_language,
+                    confidence,
+                    fallback_used,
+                    False,
+                    False,
+                    "trusted_web_fallback",
+                    triage,
+                )
+                return web_fallback_response
+
             self._log_query_pipeline(
                 raw_question,
                 normalized_query,
@@ -571,6 +686,7 @@ class ChatbotService:
                 [],
                 style_question,
                 triage,
+                answer_source_type="refusal",
             )
 
         try:
@@ -616,5 +732,6 @@ class ChatbotService:
             [] if refusal_response else build_source_payload(retrieved_chunks),
             style_question,
             triage,
+            answer_source_type="refusal" if refusal_response else "book_rag",
         )
 

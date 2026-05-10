@@ -352,6 +352,61 @@ textarea {
   line-height: 1.65;
 }
 
+.web-fallback-panel {
+  margin-top: 1rem;
+  border-top: 1px solid #dbeafe;
+  padding-top: 0.95rem;
+}
+
+.web-fallback-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #99f6e4;
+  border-radius: 999px;
+  background: #f0fdfa;
+  padding: 0.38rem 0.65rem;
+  color: #0f766e;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.web-source-list {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.75rem;
+}
+
+.web-source-link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.45rem 0.55rem;
+  border: 1px solid #ccfbf1;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 0.7rem;
+  color: #0f172a;
+  font-size: 0.84rem;
+  font-weight: 800;
+  line-height: 1.4;
+}
+
+.web-source-link:hover {
+  border-color: #5eead4;
+  color: #0f766e;
+}
+
+.web-source-link span {
+  overflow-wrap: anywhere;
+}
+
+.web-source-link small {
+  grid-column: 2;
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
 .triage-panel {
   margin-top: 1rem;
   border-top: 1px solid #dbeafe;

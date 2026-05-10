@@ -36,6 +36,11 @@ def resolve_medical_book_path() -> Path:
     return configured_path
 
 
+def parse_csv_env(value: str, default: str) -> list[str]:
+    raw_value = value or default
+    return [item.strip().lower() for item in raw_value.split(",") if item.strip()]
+
+
 class Config:
     DEBUG = os.getenv("FLASK_ENV", "development") == "development"
     CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:5173")
@@ -44,6 +49,16 @@ class Config:
     OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.4-mini")
     OPENAI_CHAT_FALLBACK_MODEL = os.getenv("OPENAI_CHAT_FALLBACK_MODEL", "gpt-4.1-mini")
     OPENAI_NORMALIZATION_MODEL = os.getenv("OPENAI_NORMALIZATION_MODEL", "gpt-4.1-mini")
+    WEB_FALLBACK_MODEL = os.getenv(
+        "WEB_FALLBACK_MODEL", os.getenv("OPENAI_CHAT_FALLBACK_MODEL", "gpt-4.1-mini")
+    )
+    ENABLE_WEB_FALLBACK = os.getenv("ENABLE_WEB_FALLBACK", "true").lower() == "true"
+    WEB_FALLBACK_ALLOWED_DOMAINS = parse_csv_env(
+        os.getenv("WEB_FALLBACK_ALLOWED_DOMAINS", ""),
+        "who.int,cdc.gov,nih.gov,medlineplus.gov,mayoclinic.org,nhs.uk,"
+        "clevelandclinic.org,hopkinsmedicine.org,fda.gov",
+    )
+    WEB_FALLBACK_MAX_SOURCES = int(os.getenv("WEB_FALLBACK_MAX_SOURCES", "5"))
 
     VECTOR_STORE_DIR = resolve_backend_path(
         os.getenv("VECTOR_STORE_DIR", "storage/chroma_db"), "storage/chroma_db"
