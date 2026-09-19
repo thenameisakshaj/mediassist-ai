@@ -1,113 +1,151 @@
 # MediAssist AI
 
-MediAssist AI is a full-stack academic medical website with an embedded retrieval-based AI chatbot. It is designed for a viva, portfolio demo, and local academic submission.
+MediAssist AI is a full-stack medical education application with a retrieval-augmented generation (RAG) chatbot. Built for academic demonstrations, portfolio presentations, and local submissions, it answers questions using context retrieved from a medical PDF.
 
-The chatbot is not a generic assistant. It loads a medical PDF, splits the text into chunks, creates embeddings, stores them in a local Chroma vector store, retrieves relevant chunks for a user question, and sends only that retrieved context to OpenAI for a concise educational answer.
+The backend extracts and chunks PDF text, generates embeddings locally, and stores them in a persistent Chroma database. For each question, it retrieves relevant passages and passes those passages as source context to the OpenAI Responses API. The interface displays educational answers with source snippets.
 
-## Final Tech Stack
-
-- Frontend: React 19, Vite 8, Tailwind CSS 4, React Router, Framer Motion, Lucide React
-- Backend: Flask 3, Flask-CORS, Python dotenv
-- PDF processing: pypdf
-- Embeddings: SentenceTransformers with `sentence-transformers/all-MiniLM-L6-v2`
-- Vector store: Chroma persisted locally in `backend/storage/chroma_db`
-- LLM: OpenAI Responses API with `gpt-5.4-mini` by default
-- Configuration: `.env` files for backend and frontend
-
-OpenAI API usage follows the official Python SDK pattern from the OpenAI API docs: `from openai import OpenAI` and `client.responses.create(...)`.
-
-## Full Folder Structure
-
-```text
-medical-ai-bot/
-|-- backend/
-|   |-- app.py
-|   |-- config.py
-|   |-- requirements.txt
-|   |-- .env.example
-|   |-- services/
-|   |   |-- __init__.py
-|   |   |-- pdf_loader.py
-|   |   |-- text_splitter.py
-|   |   |-- embeddings.py
-|   |   |-- vector_store.py
-|   |   |-- retriever.py
-|   |   |-- prompt_builder.py
-|   |   |-- openai_client.py
-|   |   `-- chatbot_service.py
-|   |-- routes/
-|   |   |-- __init__.py
-|   |   |-- chat_routes.py
-|   |   |-- index_routes.py
-|   |   `-- contact_routes.py
-|   |-- data/
-|   |   `-- medical_book.pdf
-|   |-- storage/
-|   |   `-- chroma_db/
-|   `-- utils/
-|       |-- __init__.py
-|       |-- logger.py
-|       `-- helpers.py
-|-- frontend/
-|   |-- package.json
-|   |-- vite.config.js
-|   |-- index.html
-|   |-- .env.example
-|   `-- src/
-|       |-- main.jsx
-|       |-- App.jsx
-|       |-- api/client.js
-|       |-- assets/
-|       |-- components/
-|       |-- pages/
-|       |-- router/AppRouter.jsx
-|       `-- styles/global.css
-|-- docs/
-|   `-- viva_guide.md
-`-- README.md
-```
+> **Medical safety:** This application is for educational use only. It is not a substitute for a licensed healthcare professional and must not be used for diagnosis, prescriptions, triage, or treatment decisions. For emergencies—including chest pain, breathing difficulty, signs of stroke, heavy bleeding, poisoning, loss of consciousness, or risk of self-harm—seek immediate professional or emergency help.
 
 ## Features
 
-- Modern responsive medical-tech website
-- Home, About, Services/Features, AI Medical Bot, and Contact pages
-- Embedded chatbot with suggested prompts and loading states
-- Flask API with health, chat, indexing, status, suggestions, and contact routes
-- PDF ingestion with page metadata
-- Chunking with overlap for better retrieval continuity
-- Local embedding generation for indexing
-- Persistent Chroma vector store
-- OpenAI answer generation with a safety-focused system prompt
-- Source snippet display for retrieved context
-- Medical disclaimer and emergency-care warning
+- Responsive Home, About, Services/Features, AI Medical Bot, and Contact pages
+- Embedded chatbot with suggested prompts, loading states, source snippets, and safety warnings
+- PDF ingestion with page metadata and overlapping text chunks
+- Local embeddings and persistent vector storage
+- Retrieval checks that reject questions without sufficient supporting context
+- API endpoints for health checks, chat, indexing, index status, suggested prompts, and contact submissions
+
+## Technology Stack
+
+| Component | Technology |
+| --- | --- |
+| Frontend | React 19, Vite 8, Tailwind CSS 4, React Router, Framer Motion, Lucide React |
+| Backend | Flask 3, Flask-CORS, python-dotenv |
+| PDF extraction | pypdf |
+| Embeddings | SentenceTransformers with `sentence-transformers/all-MiniLM-L6-v2` |
+| Vector storage | Chroma, persisted in `backend/storage/chroma_db` |
+| Answer generation | OpenAI Responses API; default model: `gpt-5.4-mini` |
+| Configuration | Separate backend and frontend `.env` files |
 
 ## Architecture
 
 ```text
+Medical PDF → pypdf → overlapping chunks → SentenceTransformers → Chroma
+
 User question
-  -> React ChatWidget
-  -> POST /api/chat
-  -> Flask ChatbotService
-  -> SentenceTransformer query embedding
-  -> Chroma vector search
-  -> retrieved PDF chunks
-  -> OpenAI Responses API
-  -> concise educational answer + sources
-  -> React renders answer and snippets
+  → React ChatWidget
+  → POST /api/chat
+  → Flask ChatbotService
+  → SentenceTransformer query embedding
+  → Chroma vector search
+  → retrieval validation
+  → retrieved PDF context + question → OpenAI Responses API
+  → educational answer + source snippets + warning
+  → React chat interface
 ```
 
-## Backend API
+### Repository Structure
 
-- `GET /api/health`
-- `POST /api/chat`
-- `POST /api/index/rebuild`
-- `GET /api/index/status`
-- `GET /api/suggested-prompts`
-- `POST /api/contact`
+```text
+medical-ai-bot/
+├── backend/
+│   ├── app.py
+│   ├── config.py
+│   ├── requirements.txt
+│   ├── .env.example
+│   ├── services/
+│   │   ├── __init__.py
+│   │   ├── pdf_loader.py
+│   │   ├── text_splitter.py
+│   │   ├── embeddings.py
+│   │   ├── vector_store.py
+│   │   ├── retriever.py
+│   │   ├── prompt_builder.py
+│   │   ├── openai_client.py
+│   │   └── chatbot_service.py
+│   ├── routes/
+│   │   ├── __init__.py
+│   │   ├── chat_routes.py
+│   │   ├── index_routes.py
+│   │   └── contact_routes.py
+│   ├── data/
+│   │   └── medical_book.pdf
+│   ├── storage/
+│   │   └── chroma_db/
+│   └── utils/
+│       ├── __init__.py
+│       ├── logger.py
+│       └── helpers.py
+├── frontend/
+│   ├── package.json
+│   ├── vite.config.js
+│   ├── index.html
+│   ├── .env.example
+│   └── src/
+│       ├── main.jsx
+│       ├── App.jsx
+│       ├── api/client.js
+│       ├── assets/
+│       ├── components/
+│       ├── pages/
+│       ├── router/AppRouter.jsx
+│       └── styles/global.css
+├── docs/
+│   └── viva_guide.md
+└── README.md
+```
 
-## Environment Variables
+The PDF and Chroma directory are local runtime inputs and generated data; their inclusion in this layout does not imply they should be committed.
 
-Backend: create `backend/.env` from `backend/.env.example`.
+## Local Setup
+
+### Prerequisites
+
+- Python 3.10+
+- Node.js 20.19+ recommended for Vite 8
+- An OpenAI API key
+- A medical PDF you are authorized to use
+
+The commands below use PowerShell and start from the repository root (`medical-ai-bot`). Internet access is required to download the embedding model on its first run.
+
+### Backend
+
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+
+Set `OPENAI_API_KEY` in `backend/.env`. Place your medical PDF at `backend/data/medical_book.pdf`, replacing the sample if present, or update `MEDICAL_BOOK_PATH` in `backend/.env`.
+
+Start the backend:
+
+```powershell
+python app.py
+```
+
+The local API is available at `http://localhost:5000`.
+
+### Frontend
+
+Open a second terminal at the repository root:
+
+```powershell
+cd frontend
+npm install
+Copy-Item .env.example .env
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173), then build the PDF index before asking questions.
+
+### Configuration
+
+Create each `.env` file from its corresponding `.env.example`. Keep real credentials only in the local backend `.env`; never add them to the example files or frontend configuration.
+
+Backend (`backend/.env`):
 
 ```env
 OPENAI_API_KEY=
@@ -124,131 +162,103 @@ PINECONE_API_KEY=
 PINECONE_INDEX_NAME=
 ```
 
-Frontend: create `frontend/.env` from `frontend/.env.example`.
+The current architecture uses local Chroma storage. Pinecone is listed as a future option; its configuration entries can remain empty for the local setup.
+
+Frontend (`frontend/.env`):
 
 ```env
 VITE_API_BASE_URL=http://localhost:5000
 ```
 
-Never commit real API keys.
+## PDF Indexing and Chat
 
-## Setup Steps
-
-Requirements:
-
-- Python 3.10+
-- Node.js 20.19+ recommended for Vite 8
-- An OpenAI API key
-
-Backend setup:
-
-```powershell
-cd medical-ai-bot\backend
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-Copy-Item .env.example .env
-```
-
-Edit `backend/.env` and add `OPENAI_API_KEY`.
-
-Replace the sample `backend/data/medical_book.pdf` with your real medical book PDF, keeping the same filename or updating `MEDICAL_BOOK_PATH`.
-
-Start backend:
-
-```powershell
-python app.py
-```
-
-Frontend setup:
-
-```powershell
-cd medical-ai-bot\frontend
-npm install
-Copy-Item .env.example .env
-npm run dev
-```
-
-Open:
-
-```text
-http://localhost:5173
-```
-
-## Indexing Workflow
-
-Use the AI Medical Bot page and click "Rebuild PDF Index", or call:
+On the AI Medical Bot page, select **Rebuild PDF Index**, or run:
 
 ```powershell
 Invoke-RestMethod -Method Post -Uri http://localhost:5000/api/index/rebuild
 ```
 
-The backend will:
+The backend loads the PDF specified by `MEDICAL_BOOK_PATH`, extracts text page by page with `pypdf`, splits it into overlapping chunks, and generates SentenceTransformer embeddings. Chroma stores the vectors, text, and metadata. The indexing response includes the number of indexed chunks.
 
-1. Load the PDF from `MEDICAL_BOOK_PATH`
-2. Extract text page by page with `pypdf`
-3. Split text into overlapping chunks
-4. Create embeddings with SentenceTransformers
-5. Store vectors, text, and metadata in Chroma
-6. Return the number of indexed chunks
-
-Check status:
+Check the index status:
 
 ```powershell
 Invoke-RestMethod -Uri http://localhost:5000/api/index/status
 ```
 
-## Chatbot Workflow
+For chat, the frontend sends `POST /api/chat` with a JSON body:
 
-1. The user enters a medical question in the React chat UI.
-2. The frontend sends `POST /api/chat` with `{ "message": "..." }`.
-3. The backend validates the question.
-4. The retriever embeds the question and searches Chroma.
-5. Retrieved chunks are formatted into a grounded prompt.
-6. OpenAI generates a concise educational answer.
-7. The backend returns answer, source snippets, and warning.
-8. The frontend renders the answer and retrieved context.
+```json
+{ "message": "What is hypertension?" }
+```
 
-If the context is insufficient, the chatbot returns:
+The backend validates the question, embeds it, and retrieves matching chunks from Chroma. Before answer generation, strict RAG checks evaluate vector similarity and keyword coverage. Questions that are out of domain, too vague, meta-only, or lack direct support for their key medical terms are refused with no visible sources.
+
+When context is insufficient, the chatbot returns:
 
 ```text
 I do not have enough relevant medical-book context to answer that confidently.
 ```
 
-Strict RAG refusal mode runs before answer generation. The backend checks both vector similarity and keyword coverage against the retrieved chunks. If the question is out-of-domain, too vague, meta-only, or the key medical terms are not directly supported by the retrieved book context, the chatbot refuses and returns no visible sources.
+When the checks pass, retrieved chunks are formatted into a grounded prompt. The backend uses the OpenAI Python SDK (`OpenAI` and `client.responses.create(...)`) with a safety-focused system prompt to generate a concise educational answer. It returns the answer, source snippets, and a warning for the frontend to display.
 
-## Screenshots
+## API Routes
 
-Add screenshots after running the app:
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/health` | Check API health |
+| `POST` | `/api/chat` | Submit a question |
+| `POST` | `/api/index/rebuild` | Rebuild the PDF index |
+| `GET` | `/api/index/status` | Check index status |
+| `GET` | `/api/suggested-prompts` | Retrieve suggested questions |
+| `POST` | `/api/contact` | Submit the contact form |
 
-- `docs/screenshots/home.png`
-- `docs/screenshots/bot.png`
-- `docs/screenshots/index-status.png`
+## Repository Hygiene and Security
+
+- **Never commit real API keys or secrets**, including in source code, documentation, screenshots, or logs.
+- Create `backend/.env` and `frontend/.env` from their respective `.env.example` files. Keep `.env.example` files credential-free; do not replace their placeholders with real credentials.
+- Ensure `.env` files are ignored by Git before adding credentials. Frontend configuration is exposed to the browser, so keep the OpenAI API key in the backend only.
+- If a key is accidentally exposed, revoke or rotate it immediately. Remove it from tracked files and repository history as appropriate; deleting it from the latest commit alone does not invalidate the exposed key.
+- Do not commit generated Chroma data unless intentionally required and reviewed for sensitive content. It contains source text and metadata as well as embeddings and can be rebuilt from the PDF.
+- Do not commit private medical PDFs, patient information, or copyrighted medical PDFs without explicit redistribution rights. Keep source documents local unless they are suitable and authorized for public distribution.
+- Exclude local environments, installed dependencies, and generated build files from version control.
+
+Recommended root `.gitignore` entries:
+
+```gitignore
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Generated vector data and local source PDFs
+/backend/storage/chroma_db/
+/backend/data/*.pdf
+
+# Dependencies and generated files
+.venv/
+__pycache__/
+*.py[cod]
+node_modules/
+/frontend/dist/
+```
+
+Ignore any custom PDF or vector-store paths as well. Git ignore rules do not stop tracking files already committed; remove those files from tracking separately while retaining any needed local copies.
 
 ## Limitations
 
-- Educational use only
-- Not a substitute for doctors or licensed healthcare professionals
-- Should not be used for emergencies
-- Depends on the quality and coverage of the source PDF
-- PDF extraction may be weak for scanned books unless OCR is added
-- Local embedding model download requires internet on first run
-- The system does not validate medical correctness beyond retrieved context
+- Answer quality depends on the source PDF's quality and coverage.
+- Scanned PDFs may extract poorly without OCR, which is not currently included.
+- The embedding model requires an internet connection for its initial download.
+- Retrieval checks assess supporting context; the system does not independently validate medical correctness.
+- The application is intended for academic and local educational use, not clinical decision-making or emergency care.
 
-## Ethical Note
+## Planned Improvements
 
-MediAssist AI must not be used for diagnosis, prescriptions, triage, or treatment decisions. Medical questions involving severe symptoms, chest pain, breathing difficulty, stroke signs, heavy bleeding, poisoning, loss of consciousness, or self-harm require immediate professional or emergency help.
-
-## Future Scope
-
-- Admin upload flow for multiple PDFs
-- OCR support for scanned books
-- Citation scoring and answer evaluation
-- Pinecone or managed vector store option
-- Chat history and user accounts
-- Streaming answers
-- Model evaluation test set
+- Admin uploads and support for multiple PDFs
+- OCR for scanned documents
+- Citation scoring, answer evaluation, and a model evaluation test set
+- Pinecone or another managed vector store
+- Chat history, user accounts, and streaming answers
 - Docker deployment
-- Clinical review workflow before real-world use
-
-
+- Clinical review workflow before any real-world use
